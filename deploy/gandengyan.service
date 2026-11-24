@@ -1,0 +1,20 @@
+[Unit]
+Description=Gandengyan Game Server
+After=network.target
+
+[Service]
+Type=simple
+User=gandengyan
+Group=gandengyan
+WorkingDirectory=/opt/gandengyan
+ExecStart=/opt/gandengyan/current/gandengyan -config /opt/gandengyan/config.json
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=30
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

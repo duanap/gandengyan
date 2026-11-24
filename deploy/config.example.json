@@ -1,0 +1,11 @@
+{
+  "listen": "127.0.0.1:8080",
+  "allowedOrigins": ["https://example.com"],
+  "trustLoopbackProxy": true,
+  "maxRooms": 512,
+  "maxConnections": 1024,
+  "maxConnectionsPerIP": 20,
+  "idleOfflineRoomMinutes": 30,
+  "sessionHours": 24,
+  "aiWorkers": 2
+}
