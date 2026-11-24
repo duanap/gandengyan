@@ -1,6 +1,6 @@
 # 构建、部署与运维方案
 
-> 目标环境：Linux 单服务器、Go 单体服务、Nginx 反向代理、systemd。以下配置为开发和部署模板，不表示已经存在或已上线的服务。
+> 目标环境：Linux 单服务器、Go 单体服务、Nginx 反向代理、systemd。示例域名、端口和证书路径按目标服务器替换。
 
 ## 1. 部署目标
 
@@ -32,6 +32,10 @@ make build
 ```
 
 建议输出 `dist/gandengyan`，同时生成校验和及版本元数据。前端资源通过同源 `/api/`、`/ws` 访问后端；开发环境 Vite 可配置代理，不将生产域名写死在源码中。
+
+从项目根目录运行 `node scripts/build.mjs --linux`，生成 Linux amd64 单文件、`.sha256` 和 `.json`。上传到服务器的独立发布目录后，先执行 `sha256sum -c gandengyan.sha256` 和 `./gandengyan -version`。
+
+可用配置以仓库的 [config.example.json](../deploy/config.example.json) 为准。生产填写精确的 HTTPS Origin，Nginx 按自己的实际对端地址覆盖 `X-Real-IP`，Go 只信任来自回环代理的该字段。
 
 ## 3. 服务器目录与权限
 
@@ -114,6 +118,8 @@ server {
 ```
 
 注意：`client_max_body_size` 不限制 WebSocket 帧，Go 服务仍必须设置 WebSocket 消息读取上限。只信任来自本机受控反向代理的转发头。静态资源可按内容哈希设置长期缓存；首页、API 与游戏状态不使用错误的长缓存策略。
+
+由宝塔管理的服务器应在宝塔登记实际域名为反向代理项目，让面板同步站点清单和 Nginx 配置。部署时检查面板列表、源站 HTTPS、公网 HTTPS/WSS 及证书有效期。
 
 检查配置：
 

@@ -2,9 +2,11 @@
 
 2–5 人的实时纸牌游戏。和好友建房，或直接与 AI 开一局。经典模式每轮全员补一张，极速模式每轮只有最后成功出牌者补一张。第一位合法出完手牌的玩家获胜。
 
+[在线游戏](https://gdy.duanap.cn/) · [腾讯云首发记录](docs/TENCENT_RELEASE_2026-11-24.md)
+
 ## 本地开发
 
-需要 Go 1.24+、Node.js 22+ 和 npm。两个终端分别执行：
+需要 Go 1.24+、Node.js 22.12+ 和 npm。两个终端分别执行：
 
 ```sh
 cd server
@@ -44,7 +46,7 @@ npx playwright install chromium
 npm run e2e
 ```
 
-Windows 可直接在对应目录运行验收报告中的 Go 和 npm 命令。全量模拟默认每个人数与模式组合 1,250 局，`dist/simulation.jsonl` 含逐局种子和结果。浏览器 E2E 拉起一个实际嵌入构建和一个仅通过 Go 测试启动的确定性牌局服务。
+Windows 可直接在对应目录运行验收报告中的 Go 和 npm 命令。全量模拟默认每个人数与模式组合 1,250 局，`dist/simulation.jsonl` 含逐局种子和结果。浏览器 E2E 拉起实际嵌入构建、确定性测试牌局服务和 Vite 开发代理。
 
 | 目录 | 内容 |
 | --- | --- |

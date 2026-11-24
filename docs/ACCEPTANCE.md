@@ -14,7 +14,7 @@
 | `go test -C server -race -count=1 ./...`、`go vet -C server ./...` | 通过 |
 | `go test -C server ./internal/rules -run '^$' -fuzz FuzzPreview -fuzztime 15s -parallel 4` | 通过，2,746,244 次执行 |
 | `npm --prefix web run typecheck`、`npm --prefix web test` | 通过，3 项前端单测；依赖安装时审计报告 0 项 |
-| `npm --prefix web run e2e` | 13 项通过，包含独立真人会话、混合房、万能牌选择、非法余牌、两种补牌、牌堆耗尽、结算、再开局、刷新和弱网 |
+| `npm --prefix web run e2e` | 14 项通过，包含 Vite 同源代理、独立真人会话、混合房、万能牌选择、非法余牌、两种补牌、牌堆耗尽、结算、再开局、刷新和弱网 |
 | `node scripts/build.mjs`、`node scripts/build.mjs --linux` | Windows 和 Linux amd64 单文件构建通过 |
 
 弱网测试注入 135 ms 交付延迟，关闭实际套接字并设置浏览器离线，恢复后核对相同席位和手牌。首版测试通过路由模拟关闭时只断开了浏览器侧，现以实际套接字作为断链条件。手机脚本覆盖 844×390 和 932×430 横屏、667×320 短屏及 390×844 竖屏回退。
@@ -69,5 +69,7 @@
 - [横屏牌桌 844×390](screenshots/table-mobile-844.png)
 - [横屏牌桌 932×430](screenshots/table-mobile-932.png)
 - [结算](screenshots/settlement-desktop.png)
+
+设置 `GDY_CAPTURE=1` 后运行浏览器测试可更新截图。公网版本及整局冒烟见 [腾讯云首发记录](TENCENT_RELEASE_2026-11-24.md)。
 
 Android、iOS、iPad 真机及系统后台切换未验证。公网容量未做压力测试。进程重启清除内存房间、牌局和累计积分，升级使用人工维护窗口。
