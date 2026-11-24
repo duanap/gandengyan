@@ -23,5 +23,10 @@ export default defineConfig({
       env: { GDY_E2E_FIXTURE_ADDR: '127.0.0.1:18082' },
       url: fixtureURL + '/healthz', timeout: 45_000,
     },
+    {
+      command: 'npm run dev -- --port 18083',
+      env: { GDY_DEV_BACKEND: baseURL },
+      url: 'http://127.0.0.1:18083/', timeout: 20_000,
+    },
   ],
 })

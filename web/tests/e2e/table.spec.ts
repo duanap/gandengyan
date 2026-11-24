@@ -7,6 +7,7 @@ const fixture = 'http://127.0.0.1:18082'
 const screenshots = fileURLToPath(new URL('../../../docs/screenshots/', import.meta.url))
 
 async function capture(page: Page, file: string) {
+  if (process.env.GDY_CAPTURE !== '1') return
   mkdirSync(screenshots, { recursive: true })
   await page.screenshot({ path: screenshots + file, animations: 'disabled' })
 }
@@ -78,6 +79,14 @@ test('首页、规则、创建与加入切换', async ({ page }) => {
   await expect(dialog.getByRole('alert')).toHaveText('请输入 6 位数字房间号。')
   await dialog.getByRole('button', { name: '创建房间' }).click()
   await expect(dialog.getByRole('group', { name: '牌桌人数' })).toBeVisible()
+})
+
+test('Vite 开发代理保持 API 与 WebSocket 的同源校验', async ({ page }) => {
+  const watched = observe(page)
+  await page.goto('http://127.0.0.1:18083/')
+  await create(page, '开发联调', 2, 'speed', true)
+  await expect(page.getByTestId('hand')).toBeVisible()
+  expect(watched.state().payload.players.some(player => player.bot)).toBe(true)
 })
 
 test('独立浏览器联机、非法余牌、多义王、公开出牌和经典补牌', async ({ browser }) => {
