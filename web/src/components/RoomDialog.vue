@@ -47,10 +47,12 @@ async function submit() {
 
 <template>
   <Modal :title="title" @close="!busy && emit('close')">
-    <div v-if="initial !== 'quick'" class="segmented tabs" role="group" aria-label="房间操作">
-      <button type="button" :aria-pressed="kind === 'create'" :disabled="busy" @click="switchTo('create')">创建房间</button>
-      <button type="button" :aria-pressed="kind === 'join'" :disabled="busy" @click="switchTo('join')">加入房间</button>
-    </div>
+    <template v-if="initial !== 'quick'" #heading>
+      <div class="segmented room-tabs" role="group" aria-label="房间操作">
+        <button type="button" :aria-pressed="kind === 'create'" :disabled="busy" @click="switchTo('create')">创建房间</button>
+        <button type="button" :aria-pressed="kind === 'join'" :disabled="busy" @click="switchTo('join')">加入房间</button>
+      </div>
+    </template>
     <form class="room-form" @submit.prevent="submit">
       <label>昵称<input v-model="nickname" autocomplete="nickname" maxlength="32" placeholder="输入你的昵称" required :disabled="busy"></label>
       <label v-if="kind === 'join'">房间号<input v-model="roomId" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="6 位数字" required :disabled="busy"></label>

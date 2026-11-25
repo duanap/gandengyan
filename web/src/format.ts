@@ -27,6 +27,14 @@ export function shapeRanks(p: PatternShape) {
 export const modeName = (mode: Mode) => mode === 'classic' ? '经典' : '极速'
 export const signed = (n: number) => n > 0 ? '+' + n : String(n)
 
+// Starting at the local seat, increasing backend seat numbers go counterclockwise.
+export const tablePositions = {
+  2: ['top-center'],
+  3: ['top-right', 'top-left'],
+  4: ['right', 'top-center', 'left'],
+  5: ['right', 'top-right', 'top-left', 'left'],
+} as const
+
 export function opponents(players: Player[], selfId: string, capacity: number) {
   const self = players.find(player => player.playerId === selfId)
   if (!self) return []

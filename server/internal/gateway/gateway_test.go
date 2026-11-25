@@ -47,6 +47,21 @@ func fixtureDeal(mode game.Mode, n, first int) (*game.Game, error) {
 	return game.New(mode, n, max(0, first), deck)
 }
 
+// Seat zero starts with a natural four-bomb or a wild five-/six-bomb in the
+// larger browser test rooms. The live server never uses this deal.
+func browserFixtureDeal(mode game.Mode, n, first int) (*game.Game, error) {
+	if n == 2 {
+		return fixtureDeal(mode, n, first)
+	}
+	opening := append([]card.ID{8, 9, 10, 11, 52, 53}[:n+1], []card.ID{16, 20}[:5-n]...)
+	deck := card.Deck()
+	for i, id := range opening {
+		at := slices.Index(deck, id)
+		deck[i*n], deck[at] = deck[at], deck[i*n]
+	}
+	return game.New(mode, n, max(0, first), deck)
+}
+
 func testGateway(t *testing.T, ttl time.Duration, deal func(game.Mode, int, int) (*game.Game, error)) (*httptest.Server, *room.Directory) {
 	t.Helper()
 	dir := room.NewDirectory(t.Context(), room.Config{MaxRooms: 128, OfflineTTL: ttl, SessionTTL: time.Hour, AIWorkers: 2, Deal: deal})
@@ -424,7 +439,7 @@ func TestBrowserFixture(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
-	dir := room.NewDirectory(ctx, room.Config{MaxRooms: 64, OfflineTTL: time.Minute, SessionTTL: time.Hour, AIWorkers: 2, Deal: fixtureDeal})
+	dir := room.NewDirectory(ctx, room.Config{MaxRooms: 64, OfflineTTL: time.Minute, SessionTTL: time.Hour, AIWorkers: 2, Deal: browserFixtureDeal})
 	defer dir.Close()
 	handler := New(dir, Config{MaxConnections: 100, MaxPerIP: 30, Build: "e2e-fixture"}, assets)
 	server := &http.Server{Addr: addr, Handler: handler, ReadHeaderTimeout: 5 * time.Second}

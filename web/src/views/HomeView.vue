@@ -13,10 +13,10 @@ const emit = defineEmits<{ open: [mode: 'create' | 'join' | 'quick'] }>()
         <h1>干瞪眼<span>.</span></h1>
         <p>差一级，就能接。<br>先出完手牌的人赢。</p>
         <div class="hero-actions">
-          <button class="button gold" type="button" @click="emit('open', 'create')">创建房间 <span aria-hidden="true">↗</span></button>
+          <button class="button gold" type="button" @click="emit('open', 'quick')">和 AI 快速开始 <span aria-hidden="true">→</span></button>
+          <button class="button light-outline" type="button" @click="emit('open', 'create')">创建房间</button>
           <button class="button light-outline" type="button" @click="emit('open', 'join')">加入房间</button>
         </div>
-        <button class="quick-link" type="button" @click="emit('open', 'quick')"><span aria-hidden="true">✦</span> 和 AI 快速开始 <span aria-hidden="true">→</span></button>
       </div>
       <div class="hero-art" aria-hidden="true">
         <div class="art-mat"></div>

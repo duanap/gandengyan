@@ -12,7 +12,8 @@ onMounted(() => element.value?.showModal())
     @cancel.prevent="emit('close')" @click.self="emit('close')">
     <div class="modal-body">
       <div class="modal-heading">
-        <h2 :id="titleId">{{ title }}</h2>
+        <h2 :id="titleId" :class="{ 'visually-hidden': $slots.heading }">{{ title }}</h2>
+        <slot name="heading" />
         <button class="icon-button" type="button" aria-label="关闭" @click="emit('close')">×</button>
       </div>
       <slot />

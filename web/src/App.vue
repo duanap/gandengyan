@@ -27,8 +27,12 @@ onUnmounted(() => {
 <template>
   <div class="app-shell" :class="{ 'at-table': !!table.game }">
     <header class="site-header">
-      <div class="brand"><img src="/favicon.svg" alt="" width="36" height="36"><strong>干瞪眼</strong></div>
-      <div v-if="table.room" class="header-room"><span>房间 {{ table.room.roomId }}</span><span>{{ modeName(table.room.mode) }}</span></div>
+      <div class="brand">
+        <span v-if="table.game" class="brand-suit" aria-hidden="true">♠</span>
+        <img v-else src="/favicon.svg" alt="" width="36" height="36">
+        <strong>干瞪眼</strong>
+      </div>
+      <div v-if="table.room" class="header-room"><span>房间 {{ table.room.roomId }}</span><span>{{ modeName(table.room.mode) }}模式</span></div>
       <div class="header-aside">
         <span v-if="table.credentials" class="connection" :class="{ connected: table.connection === 'online' }" role="status">
           {{ table.connection === 'online' ? '已连接' : table.connection === 'reconnecting' ? '重连中' : '连接中' }}
