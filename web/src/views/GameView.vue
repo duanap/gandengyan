@@ -1,33 +1,38 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
+import BoardTable from '../components/BoardTable.vue'
 import CardFace from '../components/CardFace.vue'
+import HandRail from '../components/HandRail.vue'
 import Modal from '../components/Modal.vue'
-import DesktopTable from '../layouts/desktop/DesktopTable.vue'
-import MobileTable from '../layouts/mobile/MobileTable.vue'
+import PlayerSeat from '../components/PlayerSeat.vue'
 import { useTable } from '../stores/table'
 import { usePlay } from '../composables/usePlay'
-import { cardLabel, opponents, rankText, shapeName, shapeRanks, signed } from '../format'
+import { opponents, shapeName, shapeRanks, signed, tablePositions } from '../format'
+import type { Pattern } from '../types/protocol'
 
 const table = useTable()
-const { selected, options, chooser, error, turn, canPass, canHint, canPlay, toggle, action, play, hint } = usePlay()
+const { selected, options, chooser, error, turn, canPass, canHint, canPlay, canSelect, toggle, changeRange, clear, action, play, hint } = usePlay()
 const game = computed(() => table.game!)
 const self = computed(() => game.value.players.find(p => p.playerId === game.value.selfPlayerId)!)
 const active = computed(() => game.value.players.find(p => p.playerId === game.value.currentPlayerId))
 const enemySeats = computed(() => opponents(game.value.players, game.value.selfPlayerId, game.value.capacity))
+const positions = computed(() => tablePositions[game.value.capacity as keyof typeof tablePositions])
 const winner = computed(() => game.value.players.find(player => player.playerId === game.value.winnerId))
 const finished = computed(() => game.value.phase === 'finished')
 const settlement = ref(finished.value)
-const mobileQuery = window.matchMedia('(max-width: 760px), (max-width: 1080px) and (max-height: 540px), (pointer: coarse) and (max-height: 640px)')
-const mobile = ref(mobileQuery.matches)
-const changeMedia = (event: MediaQueryListEvent) => { mobile.value = event.matches }
-onMounted(() => mobileQuery.addEventListener('change', changeMedia))
-onUnmounted(() => mobileQuery.removeEventListener('change', changeMedia))
+const roundEntered = ref(false)
 watch(finished, value => { settlement.value = value })
+watch(() => game.value.roundNumber, (round, previous) => {
+  roundEntered.value = round > previous && table.motion?.key === table.revision
+})
 const drawings = computed(() => table.motion?.events.filter(e => e.type === 'cards_drawn') ?? [])
 const inDeal = computed(() => !!table.motion?.events.some(e => e.type === 'game_started'))
 const played = computed(() => table.publicPlay)
 const playedBy = computed(() => game.value.players.find(p => p.playerId === played.value?.playerId)?.nickname)
-const tightHand = computed(() => game.value.selfHand.length > (mobile.value ? 8 : 11))
+const playOrigin = computed(() => played.value?.playerId === self.value.playerId ? 'self'
+  : positions.value[enemySeats.value.findIndex(player => player.playerId === played.value?.playerId)])
+const animatePlay = computed(() => played.value?.key === table.motion?.key
+  && !!table.motion?.events.some(event => event.type === 'cards_played'))
 const status = computed(() => {
   if (error.value) return error.value
   if (table.connection !== 'online') return '正在同步牌桌…'
@@ -39,71 +44,74 @@ const status = computed(() => {
 const settlementRows = computed(() => (game.value.settlement ?? []).map(result => ({
   ...result, player: game.value.players.find(p => p.playerId === result.playerId)!,
 })))
+
+function orderedCards(pattern: Pattern, cardIds: number[] = pattern.cardIds) {
+  return cardIds.map(id => ({ id, wildRank: pattern.wildcards?.find(wild => wild.cardId === id)?.rank }))
+    .sort((a, b) => (a.wildRank ?? Math.floor(a.id / 4) + 3) - (b.wildRank ?? Math.floor(b.id / 4) + 3))
+}
 </script>
 
 <template>
   <main class="game-main">
-    <component :is="mobile ? MobileTable : DesktopTable" :players="enemySeats" :active="game.currentPlayerId"
-      :passed="table.passed" :drawn="drawings.map(event => event.playerId ?? '')">
-      <template #meta>
-        <div class="stock-block">
-          <div class="stock-icon" aria-hidden="true">♣</div>
-          <div><small>牌堆</small><strong data-testid="deck-count">{{ game.deckCount }} <span>张</span></strong></div>
+    <BoardTable class="game-table" data-layout="shared" aria-label="干瞪眼牌桌">
+      <div class="table-grid">
+        <div v-for="(player, index) in enemySeats" :key="player.playerId" class="table-seat opponent"
+          :data-position="positions[index]">
+          <PlayerSeat :player="player" :active="game.currentPlayerId === player.playerId" :passed="table.passed.includes(player.playerId)"
+            :drawn="drawings.some(event => event.playerId === player.playerId)" />
         </div>
-      </template>
-      <template #board>
-        <div class="round-label">第 {{ game.roundNumber }} 轮</div>
-        <div v-if="played" :key="played.key" :class="['public-play', { blast: played.pattern.type === 'bomb' }]">
-          <div class="played-cards" :aria-label="shapeName(played.pattern)">
-            <CardFace v-for="id in played.pattern.cardIds" :key="id" :id="id" :wild-rank="played.pattern.wildcards?.find(wild => wild.cardId === id)?.rank" />
+        <div class="stock-block" :class="{ 'stock-empty': !game.deckCount }">
+          <div class="stock-icon" aria-hidden="true"><span>♠</span></div>
+          <small>牌堆</small><strong data-testid="deck-count">{{ game.deckCount }} <span>张</span></strong>
+        </div>
+        <div class="board-play">
+          <div v-if="played" :key="played.key" class="public-play" :data-origin="playOrigin"
+            :class="{ 'play-enter': animatePlay, blast: animatePlay && played.pattern.type === 'bomb' }"
+            :data-bomb-size="played.pattern.type === 'bomb' ? played.pattern.length : undefined">
+            <div class="played-cards" :aria-label="shapeName(played.pattern)" tabindex="0">
+              <CardFace v-for="card in orderedCards(played.pattern)" :key="card.id" :id="card.id" :wild-rank="card.wildRank" />
+            </div>
+            <span class="pattern-caption" :title="playedBy">{{ shapeName(played.pattern) }} {{ shapeRanks(played.pattern).join(' ') }}</span>
           </div>
-          <span class="pattern-caption">{{ playedBy }} · {{ shapeName(played.pattern) }} {{ shapeRanks(played.pattern).join(' ') }}</span>
+          <div v-else-if="finished" class="lead-label">本局已结束</div>
+          <div v-else class="lead-label">{{ active?.nickname }} 领牌</div>
+          <div v-if="drawings.length" :key="table.motion?.key" class="draw-caption" data-testid="draw-event">{{ game.mode === 'classic' && drawings.length === game.capacity ? '全员各摸 1 张' : drawings.map(event => game.players.find(p => p.playerId === event.playerId)?.nickname).join('、') + ' 各摸 1 张' }}</div>
         </div>
-        <div v-else-if="finished" class="lead-label">本局已结束</div>
-        <div v-else class="lead-label"><span aria-hidden="true">✧</span>{{ active?.nickname }} 领牌</div>
-        <div v-if="drawings.length" :key="table.motion?.key" class="draw-caption" data-testid="draw-event">{{ game.mode === 'classic' && drawings.length === game.capacity ? '全员各摸 1 张' : drawings.map(event => game.players.find(p => p.playerId === event.playerId)?.nickname).join('、') + ' 各摸 1 张' }}</div>
-      </template>
-      <template #actions>
+        <div class="round-wrap"><div :key="game.roundNumber" class="round-label" :class="{ 'round-enter': roundEntered }">第 {{ game.roundNumber }} 轮</div></div>
         <div class="action-zone">
           <p class="turn-copy" :class="{ 'my-turn': turn, 'play-error': error }" role="status" data-testid="turn-status">{{ status }}</p>
           <div class="play-actions">
             <template v-if="!finished">
-              <button class="button light-outline" type="button" :disabled="!canHint" @click="hint">提示</button>
-              <button v-if="game.phase === 'following'" class="button light-outline" type="button" :disabled="!canPass || !table.available" @click="action('pass')">不出</button>
+              <button class="button secondary" type="button" :disabled="!canHint" @click="hint">提示</button>
+              <button class="button secondary" :class="{ 'pass-emphasis': canPass && table.available && !game.canPlay }" type="button" :disabled="!canPass || !table.available" @click="action('pass')">不出</button>
               <button class="button gold" type="button" :disabled="!canPlay" @click="play()">出牌<span v-if="selected.length"> · {{ selected.length }}</span></button>
             </template>
             <button v-else class="button gold" type="button" @click="settlement = true">查看结算</button>
           </div>
         </div>
-      </template>
-      <template #hand>
-        <div class="hand-scroll" :class="{ 'tight-hand': tightHand, 'initial-deal': inDeal }" aria-label="我的手牌">
-          <div class="hand" data-testid="hand">
-            <CardFace v-for="id in game.selfHand" :key="id" :id="id" as-button :selected="selected.includes(id)"
-              :disabled="!turn || !table.available" :drawn="table.motion?.drawn.includes(id)" @toggle="toggle(id)" />
-            <span v-if="!game.selfHand.length" class="empty-hand">手牌已出完</span>
-          </div>
+        <div class="table-seat own-seat" data-position="self">
+          <PlayerSeat :player="self" :active="turn" :drawn="!!table.motion?.drawn.length" self :host="game.hostPlayerId === self.playerId" />
         </div>
-      </template>
-      <template #self>
-        <div class="self-info">
-          <span class="avatar" :class="'avatar-' + self.seat" aria-hidden="true">{{ Array.from(self.nickname)[0] }}</span>
-          <strong>{{ self.nickname }}</strong><span>你 · {{ self.handCount }} 张 · {{ signed(self.score) }} 分</span>
-          <button v-if="table.notice" class="private-notice" type="button" :title="table.notice.message" @click="table.notice = undefined">双王：需搭配普通牌 <span aria-hidden="true">×</span></button>
+        <div class="hand-zone">
+          <button v-if="table.notice" class="private-notice" type="button" :title="table.notice.message" @click="table.notice = undefined">双王需搭配普通牌 <span aria-hidden="true">×</span></button>
+          <HandRail :cards="game.selfHand" :selected="selected" :disabled="!canSelect" :drawn="table.motion?.drawn ?? []"
+            :dealing="inDeal" @toggle="toggle" @change-range="changeRange" @clear="clear" />
         </div>
-      </template>
-    </component>
+      </div>
+    </BoardTable>
 
     <Modal v-if="chooser" title="万能牌怎么用？" @close="chooser = false">
       <div class="wild-options">
         <button v-for="option in options" :key="[option.type, option.rank, option.length].join('-')" type="button" @click="play(option)">
-          <strong>{{ shapeName(option) }} <span>{{ shapeRanks(option).join(' ') }}</span></strong>
-          <small>{{ option.wildcards?.map(wild => cardLabel(wild.cardId) + ' → ' + rankText(wild.rank)).join(' · ') }}</small>
+          <strong>{{ shapeName(option) }} {{ shapeRanks(option).join(' ') }}</strong>
+          <span class="wild-hand">
+            <CardFace v-for="card in orderedCards(option, selected)" :key="card.id" :id="card.id" :wild-rank="card.wildRank" />
+          </span>
         </button>
       </div>
     </Modal>
     <Modal v-if="settlement && finished" title="本局结算" wide @close="settlement = false">
-      <p class="winner"><span aria-hidden="true">✦</span> {{ winner?.nickname }} 获胜</p>
+      <p class="winner" :class="{ 'winner-enter': table.motion?.events.some(event => event.type === 'game_finished') }"><span aria-hidden="true">✦</span> {{ winner?.nickname }} 获胜</p>
       <table class="score-table">
         <thead><tr><th>牌友</th><th>余牌</th><th>本局</th><th>累计</th></tr></thead>
         <tbody><tr v-for="row in settlementRows" :key="row.playerId">

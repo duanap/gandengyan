@@ -11,6 +11,7 @@ export function usePlay() {
   let pendingPreview: number | undefined
   let generation = 0
   const turn = computed(() => table.game?.currentPlayerId === table.game?.selfPlayerId && !!table.game)
+  const canSelect = computed(() => table.available && !!table.game && table.game.phase !== 'finished')
   const canPass = computed(() => table.game?.allowedActions.includes('pass') === true)
   const canHint = computed(() => turn.value && table.game?.canPlay && table.available)
   const canPlay = computed(() => options.value.length > 0 && turn.value && table.available)
@@ -24,10 +25,7 @@ export function usePlay() {
   watch(() => table.gameId, reset)
   watch(() => table.game?.selfHand, hand => {
     const valid = selected.value.filter(id => hand?.includes(id))
-    if (valid.length !== selected.value.length) reset()
-  })
-  watch(() => table.game?.currentPlayerId, () => {
-    if (!turn.value) reset()
+    if (valid.length !== selected.value.length) selected.value = valid
   })
 
   watch([selected, () => table.revision, () => table.connection], () => {
@@ -35,6 +33,7 @@ export function usePlay() {
     const current = ++generation
     options.value = []
     chooser.value = false
+    if (!turn.value) error.value = ''
     if (!turn.value || table.connection !== 'online' || !selected.value.length) return
     const selection = [...selected.value].sort((a, b) => a - b)
     pendingPreview = window.setTimeout(async () => {
@@ -51,16 +50,26 @@ export function usePlay() {
   onScopeDispose(() => { clearTimeout(pendingPreview); generation++ })
 
   function toggle(id: number) {
-    if (!turn.value || !table.available) return
+    changeRange([id], !selected.value.includes(id))
+  }
+
+  function changeRange(ids: number[], select: boolean) {
+    if (!canSelect.value) return
+    const next = select ? [...new Set([...selected.value, ...ids])] : selected.value.filter(id => !ids.includes(id))
+    if (next.length === selected.value.length) return
     error.value = ''
-    selected.value = selected.value.includes(id) ? selected.value.filter(item => item !== id) : [...selected.value, id]
+    selected.value = next
+  }
+
+  function clear() {
+    if (canSelect.value && selected.value.length) reset()
   }
 
   async function action(type: string, payload: unknown = {}) {
     try {
       error.value = ''
       await table.command(type, payload)
-      if (type === 'play_cards' || type === 'pass') reset()
+      if (type === 'play_cards') reset()
     } catch (err) { error.value = err instanceof Error ? err.message : '操作失败，请重试。' }
   }
 
@@ -81,5 +90,5 @@ export function usePlay() {
       selected.value = reply.payload?.cardIds ?? []
     } catch (err) { error.value = err instanceof Error ? err.message : '提示暂不可用。' }
   }
-  return { selected, options, chooser, error, turn, canPass, canHint, canPlay, toggle, action, play, hint }
+  return { selected, options, chooser, error, turn, canPass, canHint, canPlay, canSelect, toggle, changeRange, clear, action, play, hint }
 }

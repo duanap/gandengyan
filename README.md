@@ -2,7 +2,7 @@
 
 2–5 人的实时纸牌游戏。和好友建房，或直接与 AI 开一局。经典模式每轮全员补一张，极速模式每轮只有最后成功出牌者补一张。第一位合法出完手牌的玩家获胜。
 
-[在线游戏](https://gdy.duanap.cn/) · [腾讯云首发记录](docs/TENCENT_RELEASE_2026-11-24.md)
+[在线游戏](https://gdy.duanap.cn/) · [腾讯云首发记录](docs/TENCENT_RELEASE_2026-11-24.md) · [V1.4 开发记录与截图](docs/UI_V1.4.md)
 
 ## 本地开发
 

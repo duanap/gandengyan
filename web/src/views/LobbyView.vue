@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { modeName } from '../format'
+import { computed, ref } from 'vue'
+import BoardTable from '../components/BoardTable.vue'
+import PlayerAvatar from '../components/PlayerAvatar.vue'
+import { tablePositions } from '../format'
 import { useTable } from '../stores/table'
 import type { RoomState } from '../types/protocol'
 
@@ -9,6 +11,15 @@ const table = useTable()
 const info = ref('')
 const error = ref('')
 const share = ref(false)
+const seats = computed(() => {
+  const { players, selfPlayerId, capacity } = props.room
+  const first = players.find(player => player.playerId === selfPlayerId)?.seat ?? 0
+  const positions = tablePositions[capacity as keyof typeof tablePositions]
+  return Array.from({ length: capacity }, (_, offset) => {
+    const seat = (first + offset) % capacity
+    return { seat, position: offset === 0 ? 'self' : positions[offset - 1], player: players.find(p => p.seat === seat) }
+  })
+})
 
 async function action(type: string, payload?: unknown) {
   error.value = ''
@@ -28,34 +39,36 @@ async function copy() {
 
 <template>
   <main class="lobby-main">
-    <section class="lobby" data-testid="lobby">
-      <div class="lobby-heading">
-        <div><p class="section-kicker">好友牌桌 · {{ modeName(room.mode) }}模式</p><h1>房间 {{ room.roomId }}</h1></div>
-        <button class="button secondary" type="button" @click="copy">复制房间号</button>
-      </div>
-      <p v-if="info" class="lobby-info" role="status">{{ info }}</p>
-      <input v-if="share" class="share-fallback" readonly aria-label="房间号" :value="room.roomId" @focus="$event.target && ($event.target as HTMLInputElement).select()">
-      <div class="lobby-seats">
-        <div v-for="seat in room.capacity" :key="seat" class="lobby-seat" :class="{ vacant: !room.players.find(p => p.seat === seat - 1) }">
-          <template v-for="p in room.players.filter(p => p.seat === seat - 1)" :key="p.playerId">
-            <span class="avatar" :class="'avatar-' + p.seat" aria-hidden="true">{{ p.bot ? '✦' : Array.from(p.nickname)[0] }}</span>
-            <div class="lobby-seat-name">
-              <strong>{{ p.nickname }}</strong>
-              <small>{{ p.playerId === room.hostPlayerId ? '房主 · ' : '' }}{{ p.bot ? 'AI 牌友' : p.online ? '在线' : '离线' }}{{ p.playerId === room.selfPlayerId ? ' · 你' : '' }}</small>
-            </div>
-            <button v-if="p.bot && room.allowedActions.includes('remove_bot')" class="icon-button" :aria-label="'移除 ' + p.nickname"
-              :disabled="!table.available" @click="action('remove_bot', { playerId: p.playerId })">×</button>
-          </template>
-          <template v-if="!room.players.some(p => p.seat === seat - 1)"><span class="avatar empty" aria-hidden="true">+</span><span>空席位</span></template>
+    <BoardTable class="lobby" data-testid="lobby" aria-label="等待牌桌">
+      <div class="table-grid lobby-grid">
+        <div v-for="{ seat, position, player } in seats" :key="seat" class="table-seat" :data-position="position">
+          <div class="lobby-seat player-seat" :class="{ vacant: !player, 'seat-self': position === 'self', 'seat-offline': player && !player.online }">
+            <template v-if="player">
+              <PlayerAvatar :seat="player.seat" :bot="player.bot" />
+              <div class="seat-info">
+                <strong>{{ player.nickname }}</strong>
+                <small>{{ player.playerId === room.hostPlayerId ? '房主 · ' : '' }}{{ player.bot ? 'AI 牌友' : player.online ? '在线' : '离线' }}{{ position === 'self' ? ' · 你' : '' }}</small>
+              </div>
+              <button v-if="player.bot && room.allowedActions.includes('remove_bot')" class="icon-button" :aria-label="'移除 ' + player.nickname"
+                :disabled="!table.available" @click="action('remove_bot', { playerId: player.playerId })">×</button>
+            </template>
+            <template v-else><span class="table-avatar empty-seat" aria-hidden="true">+</span><small>空席位</small></template>
+          </div>
+        </div>
+        <div class="lobby-center">
+          <h1>房间 {{ room.roomId }}</h1>
+          <button class="button light-outline" type="button" @click="copy">复制房间号</button>
+          <p v-if="info" class="lobby-info" role="status">{{ info }}</p>
+          <input v-if="share" class="share-fallback" readonly aria-label="房间号" :value="room.roomId" @focus="($event.target as HTMLInputElement).select()">
+          <p class="lobby-info" role="status">{{ error || (room.allowedActions.includes('start_game') ? '全员就绪' : room.players.length < room.capacity ? '等待牌友入座' : '等待房主开局或离线玩家返回') }}</p>
+        </div>
+        <div class="lobby-actions">
+          <button class="button secondary" type="button" :disabled="!table.available" @click="action('leave_room')">退出房间</button>
+          <button v-if="room.allowedActions.includes('add_bot')" class="button secondary" type="button" :disabled="!table.available" @click="action('add_bot')">添加 AI</button>
+          <button v-if="room.hostPlayerId === room.selfPlayerId" class="button gold" type="button" :disabled="!table.available || !room.allowedActions.includes('start_game')"
+            @click="action('start_game')">开始游戏 <span aria-hidden="true">→</span></button>
         </div>
       </div>
-      <p class="lobby-info" role="status">{{ error || (room.allowedActions.includes('start_game') ? '全员就绪' : room.players.length < room.capacity ? '等待牌友入座，也可以添加 AI 牌友。' : '等待房主开局或离线玩家返回。') }}</p>
-      <div class="lobby-actions">
-        <button class="button secondary" type="button" :disabled="!table.available" @click="action('leave_room')">退出房间</button>
-        <button v-if="room.allowedActions.includes('add_bot')" class="button secondary" type="button" :disabled="!table.available" @click="action('add_bot')">添加 AI</button>
-        <button v-if="room.hostPlayerId === room.selfPlayerId" class="button primary" type="button" :disabled="!table.available || !room.allowedActions.includes('start_game')"
-          @click="action('start_game')">开始游戏 <span aria-hidden="true">→</span></button>
-      </div>
-    </section>
+    </BoardTable>
   </main>
 </template>
